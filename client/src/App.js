@@ -7,8 +7,7 @@ import {
 import { useSelector, useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { loginSuccess } from "./pages/userSlice";
-import axios from "axios";
-
+import axiosClient from "./api/axiosClient";
 // Pages
 import Home from "./pages/home/Home";
 import Login from "./pages/login/Login";
@@ -35,7 +34,9 @@ function App() {
 
     const fetchUser = async () => {
       // get the user from the database
-      const res = await axios.get(`/users/?username=${foundUser.username}`);
+      const res = await axiosClient.get(
+        `/users/?username=${foundUser?.username}`
+      );
 
       dispatch(loginSuccess(res.data));
     };

@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useDispatch } from "react-redux";
 import { followUser, unFollowUser } from "../../pages/userSlice";
-import axios from "axios";
+
+import axiosClient from "../../api/axiosClient";
 import "./profileSection.css";
 import DefaultProfilePic from "../../images/noPic.png";
 
@@ -21,7 +22,7 @@ export default function ProfileSection({ user }) {
   useEffect(() => {
     const fetchPosts = async () => {
       // get the posts from the database
-      const res = await axios.get(`/posts/profile/${user.username}`);
+      const res = await axiosClient.get(`/posts/profile/${user.username}`);
       setPostsCount(res.data.length);
     };
     fetchPosts();
@@ -36,13 +37,13 @@ export default function ProfileSection({ user }) {
     try {
       // if the user is following the current user, unfollow the user
       if (isFollowing) {
-        await axios.put(`/users/${user._id}/unfollow`, {
+        await axiosClient.put(`/users/${user._id}/unfollow`, {
           userId: currentUser._id,
         });
         dispatch(unFollowUser(user._id));
       } else {
         // if the user is not following the current user, follow the user
-        await axios.put(`/users/${user._id}/follow`, {
+        await axiosClient.put(`/users/${user._id}/follow`, {
           userId: currentUser._id,
         });
         dispatch(followUser(user._id));

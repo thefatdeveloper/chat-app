@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+
+import axiosClient from "../../api/axiosClient";
 import { Link } from "react-router-dom";
 import "./register.css";
 
@@ -45,7 +46,7 @@ export default function Register() {
       const user = { username: userName, email: email, password: password };
       try {
         // make a post request to the server to register
-        await axios.post("/auth/register", user);
+        await axiosClient.post("/auth/register", user);
         // redirect to the login page
         navigate("/login");
       } catch (error) {

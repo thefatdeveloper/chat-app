@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+
+import axiosClient from "../../api/axiosClient";
 import "./post.css";
 import { Link } from "react-router-dom";
 import DefaultProfilePic from "../../images/noPic.png";
@@ -15,7 +16,7 @@ function Post({ post }) {
     // async function to fetch the user
     const fetchUser = async () => {
       // get the user from the database
-      const res = await axios.get(`/users/?userId=${post.userId}`);
+      const res = await axiosClient.get(`/users/?userId=${post.userId}`);
       setUser(res.data);
     };
     fetchUser();

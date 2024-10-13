@@ -3,7 +3,8 @@ import Body from "../../components/body/Body";
 import ProfileSection from "../../components/profileSection/ProfileSection";
 import { useState, useEffect } from "react";
 import { useParams } from "react-router";
-import axios from "axios";
+
+import axiosClient from "../../api/axiosClient";
 import "./profile.css";
 
 export default function Profile() {
@@ -14,7 +15,7 @@ export default function Profile() {
   useEffect(() => {
     const fetchUser = async () => {
       // get the user from the database
-      const res = await axios.get(`/users/?username=${params.username}`);
+      const res = await axiosClient.get(`/users/?username=${params.username}`);
       setFetchedUser(res.data);
     };
     fetchUser();

@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import axios from "axios";
 
 import NewPost from "../new_post/NewPost";
 import Post from "../post/Post";
 import UserSearch from "../userSearch/UserSearch";
 import "./body.css";
-
+import axiosClient from "../../api/axiosClient";
 export default function Body({ username, page }) {
   const [posts, setPosts] = useState([]);
   const { user } = useSelector((state) => state.user);
@@ -16,8 +15,8 @@ export default function Body({ username, page }) {
     const fetchPosts = async () => {
       // get the posts from the database
       const res = username
-        ? await axios.get("/posts/profile/" + username)
-        : await axios.get("posts/timeline/" + user._id);
+        ? await axiosClient.get("/posts/profile/" + username)
+        : await axiosClient.get("posts/timeline/" + user._id);
       setPosts(res.data);
     };
 

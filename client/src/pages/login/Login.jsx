@@ -3,7 +3,8 @@ import { useSelector, useDispatch } from "react-redux";
 import { loginSuccess, loginFail } from "../userSlice";
 import CircularProgress from "@mui/material/CircularProgress";
 import { Link } from "react-router-dom";
-import axios from "axios";
+
+import axiosClient from "../../api/axiosClient";
 import "./login.css";
 
 export default function Login() {
@@ -22,7 +23,10 @@ export default function Login() {
   async function login({ email, password }) {
     try {
       // make a post request to the server to login
-      const response = await axios.post("/auth/login", { email, password });
+      const response = await axiosClient.post("/auth/login", {
+        email,
+        password,
+      });
 
       // set the user in the redux store
       dispatch(loginSuccess(response.data));

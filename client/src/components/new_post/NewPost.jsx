@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axiosClient from "../../api/axiosClient";
 import DefaultProfilePic from "../../images/noPic.png";
 import "./newPost.css";
 
@@ -44,7 +44,7 @@ export default function NewPost({ pageType }) {
 
       // send the form data to the server
       try {
-        await axios.post("/upload", data);
+        await axiosClient.post("/upload", data);
       } catch (error) {
         console.log(error);
       }
@@ -52,7 +52,7 @@ export default function NewPost({ pageType }) {
 
     try {
       // send the new post to the server
-      await axios.post("/posts", nPost);
+      await axiosClient.post("/posts", nPost);
 
       if (pageType === "profile") {
         navigate("/");

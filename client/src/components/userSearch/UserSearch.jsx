@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import DefaultProfilePic from "../../images/noPic.png";
-import axios from "axios";
+
+import axiosClient from "../../api/axiosClient";
 
 export default function UserSearch() {
   const user = useSelector((state) => state.user.user);
@@ -18,7 +19,7 @@ export default function UserSearch() {
     const fetchFollowings = async () => {
       try {
         // get the followings from the database using axios
-        const res = await axios.get("/users/followers/" + user?._id);
+        const res = await axiosClient.get("/users/followers/" + user?._id);
         setFollowingsList(res.data);
       } catch (error) {
         console.log(error);
@@ -67,7 +68,7 @@ export default function UserSearch() {
     const searchUser = async () => {
       try {
         // get the user from the database
-        const res = await axios.get(`/users/?username=${searchUserName}`);
+        const res = await axiosClient.get(`/users/?username=${searchUserName}`);
         // set the searched user
         setSearchedUser(res.data);
         // set the error to false
