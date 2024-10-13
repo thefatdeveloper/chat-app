@@ -44,10 +44,10 @@ app.use(helmet());
 app.use(morgan("common"));
 
 app.use("/api/users", userRoute);
-app.use("/api/auth", authRoute);
-app.use("/api/posts", postRoute);
-app.use("/api/chats", chatRoute);
-app.use("/api/messages", messageRoute);
+// app.use("/api/auth", authRoute);
+// app.use("/api/posts", postRoute);
+// app.use("/api/chats", chatRoute);
+// app.use("/api/messages", messageRoute);
 
 // Multer
 const imgStorage = multer.diskStorage({
