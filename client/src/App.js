@@ -41,7 +41,7 @@ function App() {
       dispatch(loginSuccess(res.data));
     };
 
-    fetchUser();
+    // fetchUser();
   }, [dispatch]);
 
   return (

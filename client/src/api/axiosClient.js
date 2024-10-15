@@ -4,7 +4,6 @@ import axios from "axios";
 const axiosClient = axios.create({
   baseURL:
     process.env.REACT_APP_API_BASE_URL || "https://y4d8ts-8080.csb.app/api", // Default to '/api' if not set
-  timeout: 10000, // Request timeout in milliseconds
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
