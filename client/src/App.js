@@ -1,5 +1,5 @@
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -15,10 +15,18 @@ import Register from "./pages/register/Register";
 import Profile from "./pages/profile/Profile";
 import Chat from "./pages/chat/Chat";
 
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const { user } = useSelector((state) => state.user);
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
 function App() {
   // Get the user from the redux store
   const { user } = useSelector((state) => state.user);
-
   const dispatch = useDispatch();
 
   // Check if the user is logged in or not
@@ -30,42 +38,61 @@ function App() {
     // If the user is logged in then dispatch the loginSuccess action
     if (loggedInUser) {
       foundUser = JSON.parse(loggedInUser);
+      
+      const fetchUser = async () => {
+        try {
+          // get the user from the database
+          const res = await axiosClient.get(
+            `/users/?username=${foundUser?.username}`
+          );
+          dispatch(loginSuccess(res.data));
+        } catch (error) {
+          console.error("Error fetching user:", error);
+          localStorage.removeItem("user"); // Clear invalid session
+        }
+      };
+
+      fetchUser();
     }
-
-    const fetchUser = async () => {
-      // get the user from the database
-      const res = await axiosClient.get(
-        `/users/?username=${foundUser?.username}`
-      );
-
-      dispatch(loginSuccess(res.data));
-    };
-
-    // fetchUser();
   }, [dispatch]);
 
   return (
     <Router>
       <Routes>
-        {/* If a user is logged in then go to the homepage otherwise the register page */}
-        <Route exact path="/" element={user ? <Home /> : <Register />} />
-
-        {/* If the user is on the login page and user is already logged in then go to the homepage otherwise the login page */}
+        {/* Public routes */}
+        <Route 
+          path="/" 
+          element={user ? <Home /> : <Navigate to="/login" replace />} 
+        />
         <Route
           path="/login"
-          element={user ? <Navigate replace to={"/"} /> : <Login />}
+          element={user ? <Navigate to="/" replace /> : <Login />}
         />
-
-        {/* If the user is on the register page and user is already logged in then go to the homepage otherwise the register page */}
         <Route
           path="/register"
-          element={user ? <Navigate replace to={"/"} /> : <Register />}
+          element={user ? <Navigate to="/" replace /> : <Register />}
         />
 
-        {/* create a route for "chat" when user logged in otherwise navigate to login page */}
-        <Route exact path="/chat" element={<Chat />} />
+        {/* Protected routes */}
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:username"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
 
-        <Route exact path="/profile/:username" element={<Profile />} />
+        {/* Catch all route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

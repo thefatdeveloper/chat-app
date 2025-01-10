@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "https://thefatdeveloper.github.io/chat-app/static/css/main.400e9436.css",
+    "main.js": "https://thefatdeveloper.github.io/chat-app/static/js/main.142a29ca.js",
+    "static/media/noPic.png": "https://thefatdeveloper.github.io/chat-app/static/media/noPic.efec0f6b7b9bfc079535.png",
+    "index.html": "https://thefatdeveloper.github.io/chat-app/index.html",
+    "main.400e9436.css.map": "https://thefatdeveloper.github.io/chat-app/static/css/main.400e9436.css.map",
+    "main.142a29ca.js.map": "https://thefatdeveloper.github.io/chat-app/static/js/main.142a29ca.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.400e9436.css",
+    "static/js/main.142a29ca.js"
+  ]
+}
