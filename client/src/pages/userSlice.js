@@ -1,13 +1,11 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-// Helper function to get user from localStorage with validation
 const getUserFromStorage = () => {
   try {
     const savedUser = localStorage.getItem("user");
     if (!savedUser) return null;
     
     const parsedUser = JSON.parse(savedUser);
-    // Validate the user object has required fields
     if (!parsedUser._id || !parsedUser.username) {
       localStorage.removeItem("user");
       return null;
@@ -34,17 +32,13 @@ export const userSlice = createSlice({
       state.error = false;
     },
     loginSuccess: (state, action) => {
-      // Validate user data before saving
       if (!action.payload?._id || !action.payload?.username) {
         state.error = "Invalid user data";
         return;
       }
-      
-      // Update state and localStorage atomically
       state.user = action.payload;
       state.isFetching = false;
       state.error = false;
-      
       try {
         localStorage.setItem("user", JSON.stringify(action.payload));
       } catch (error) {
@@ -57,13 +51,11 @@ export const userSlice = createSlice({
       state.error = action.payload;
       localStorage.removeItem("user");
     },
-    logoutUser: (state) => {
+    resetState: (state) => {
       state.user = null;
       state.isFetching = false;
       state.error = false;
       localStorage.removeItem("user");
-      // Optional: Reload the page to clear any remaining state
-      window.location.reload();
     },
     followUser: (state, action) => {
       if (!state.user) return;
@@ -94,7 +86,7 @@ export const {
   loginStart,
   loginSuccess,
   loginFail,
-  logoutUser,
+  resetState,
   followUser,
   unFollowUser,
 } = userSlice.actions;
