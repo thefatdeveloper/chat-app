@@ -38,34 +38,41 @@ function Chat() {
 
   // set up a socket connection to the server
   useEffect(() => {
-    socket.current = io(process.env.REACT_APP_WEBSOCKET_URL);
-
-    // <----- Task 13 solution ----->
-    // get the new message from the socket
-    socket.current.on("getMessage", (data) => {
-      setSocketMsg({
-        sender: data.senderId,
-        message: data.message,
-        createdAt: Date.now(),
+    if (!socket.current) {
+      socket.current = io(process.env.REACT_APP_WEBSOCKET_URL, {
+        transports: ['websocket'],
+        reconnection: true
       });
-    });
-    // <----- Task 13 solution ----->
+    }
+
+    // Cleanup on component unmount
+    return () => {
+      if (socket.current) {
+        socket.current.disconnect();
+      }
+    };
   }, []);
 
-  // add the user to the socket and get the online users
+  // Handle user connection and online users
   useEffect(() => {
-    // add the user to the socket
-    socket.current.emit("addUser", user._id);
+    if (socket.current && user?._id) {
+      // Add user to online users
+      socket.current.emit("addUser", user._id);
 
-    // get the online users from the socket
-    socket.current.on("getUsers", (users) => {
-      // only keep the users that are in the current user's following list
-      setOnlineUsers(
-        user.followings.filter((following) =>
-          users.some((u) => u.userId === following)
-        )
-      );
-    });
+      // Listen for online users updates
+      socket.current.on("getUsers", (users) => {
+        console.log("Online users received:", users);
+        const onlineIds = users.map(u => u.userId);
+        const onlineFollowings = user.followings.filter(id => onlineIds.includes(id));
+        setOnlineUsers(onlineFollowings);
+      });
+    }
+
+    return () => {
+      if (socket.current) {
+        socket.current.off("getUsers");
+      }
+    };
   }, [user]);
 
   // <----- Task 13 solution ----->

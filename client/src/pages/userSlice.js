@@ -1,26 +1,19 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-export const userSlice = createSlice({
-  name: "user",
-  initialState: {
-    user: null,
-    // {
-    //   "_id": "63c8f595bd56f18f5e13145b",
-    //   "username":"test",
-    //   "email":"test@gmail.com",
-    //   "password":"12345678",
-    //   "profilePicture":"",
-    //   "coverPicture":"",
-    //   "followers":[],
-    //   "followings":[],
-    //   "isAdmin":false,
-    // }
+const getInitialState = () => {
+  const savedUser = localStorage.getItem("user");
+  return {
+    user: savedUser ? JSON.parse(savedUser) : null,
     isFetching: false,
     error: false,
-  },
+  };
+};
+
+export const userSlice = createSlice({
+  name: "user",
+  initialState: getInitialState(),
   reducers: {
-    loginStart: (state, action) => {
-      state.user = null;
+    loginStart: (state) => {
       state.isFetching = true;
       state.error = false;
     },
@@ -28,28 +21,34 @@ export const userSlice = createSlice({
       state.user = action.payload;
       state.isFetching = false;
       state.error = false;
+      // Save to localStorage
+      localStorage.setItem("user", JSON.stringify(action.payload));
     },
     loginFail: (state, action) => {
       state.user = null;
       state.isFetching = false;
       state.error = action.payload;
+      localStorage.removeItem("user");
     },
     resetState: (state) => {
       state.user = null;
       state.isFetching = false;
       state.error = false;
+      localStorage.removeItem("user");
     },
     followUser: (state, action) => {
-      return {
+      const newState = {
         ...state,
         user: {
           ...state.user,
           followings: [...state.user.followings, action.payload],
         },
       };
+      localStorage.setItem("user", JSON.stringify(newState.user));
+      return newState;
     },
     unFollowUser: (state, action) => {
-      return {
+      const newState = {
         ...state,
         user: {
           ...state.user,
@@ -58,11 +57,12 @@ export const userSlice = createSlice({
           ),
         },
       };
+      localStorage.setItem("user", JSON.stringify(newState.user));
+      return newState;
     },
   },
 });
 
-// Action creators are generated for each case reducer function
 export const {
   loginStart,
   loginSuccess,
