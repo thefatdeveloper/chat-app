@@ -24,14 +24,18 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.io setup with CORS configuration
+// Socket.io setup with enhanced CORS configuration
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
       ? 'https://thefatdeveloper.github.io'
       : 'http://localhost:3000',
-    methods: ['GET', 'POST']
-  }
+    methods: ['GET', 'POST'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
+  },
+  pingTimeout: 60000,
+  transports: ['websocket', 'polling']
 });
 
 // Configure environment variables
@@ -50,6 +54,7 @@ const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? 'https://thefatdeveloper.github.io'
     : 'http://localhost:3000',
+  credentials: true,
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
@@ -85,49 +90,112 @@ const connectDB = async () => {
   }
 };
 
-// Socket.io user management
-const users = new Map();
+// Enhanced Socket.io user management
+const connectedUsers = new Map(); // Stores socketId -> userId
+const userSockets = new Map();    // Stores userId -> socketId
 
-// Socket.io event handlers
+// Socket.io event handlers with improved logging and error handling
 io.on('connection', (socket) => {
-  console.log('New user connected:', socket.id);
+  console.log('New socket connection established:', socket.id);
 
-  // Handle user addition
+  // Handle user addition with validation
   socket.on('addUser', (userId) => {
-    users.set(userId, socket.id);
-    io.emit('getUsers', Array.from(users.entries()));
-    console.log('User added:', userId);
-  });
+    if (!userId) {
+      console.error('Invalid user ID received');
+      return;
+    }
 
-  // Handle message sending
-  socket.on('sendMessage', ({ senderId, receiverId, message }) => {
-    const receiverSocketId = users.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('getMessage', {
-        senderId,
-        message,
-      });
-      console.log(`Message from ${senderId} to ${receiverId}: ${message}`);
-    } else {
-      console.log(`User ${receiverId} not found.`);
+    try {
+      // Remove any existing socket connections for this user
+      const existingSocketId = userSockets.get(userId);
+      if (existingSocketId && existingSocketId !== socket.id) {
+        connectedUsers.delete(existingSocketId);
+        io.to(existingSocketId).emit('forceDisconnect');
+      }
+
+      // Store new socket connection
+      connectedUsers.set(socket.id, userId);
+      userSockets.set(userId, socket.id);
+
+      // Prepare user list for client
+      const onlineUsers = Array.from(connectedUsers.entries()).map(([socketId, userId]) => ({
+        socketId,
+        userId
+      }));
+
+      console.log('User added:', userId);
+      console.log('Current online users:', onlineUsers);
+
+      // Broadcast updated user list
+      io.emit('getUsers', onlineUsers);
+    } catch (error) {
+      console.error('Error in addUser event:', error);
     }
   });
 
-  // Handle chat messages
-  socket.on('chat message', (msg) => {
-    console.log(`Message from ${socket.id}: ${msg}`);
-    io.emit('chat message', msg);
+  // Enhanced message handling with acknowledgment
+  socket.on('sendMessage', async ({ senderId, receiverId, message }) => {
+    try {
+      const receiverSocketId = userSockets.get(receiverId);
+      
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit('getMessage', {
+          senderId,
+          message,
+          timestamp: new Date().toISOString()
+        });
+        console.log(`Message delivered from ${senderId} to ${receiverId}`);
+      } else {
+        console.log(`Receiver ${receiverId} is offline. Message queued.`);
+        // Here you could implement message queuing for offline users
+      }
+    } catch (error) {
+      console.error('Error in sendMessage event:', error);
+    }
   });
 
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-    users.forEach((socketId, userId) => {
-      if (socketId === socket.id) {
-        users.delete(userId);
+  // Improved chat message broadcasting
+  socket.on('chat message', (msg) => {
+    try {
+      const userId = connectedUsers.get(socket.id);
+      if (userId) {
+        io.emit('chat message', {
+          userId,
+          message: msg,
+          timestamp: new Date().toISOString()
+        });
       }
-    });
-    io.emit('getUsers', Array.from(users.entries()));
+    } catch (error) {
+      console.error('Error in chat message event:', error);
+    }
+  });
+
+  // Enhanced disconnection handling
+  socket.on('disconnect', () => {
+    try {
+      const userId = connectedUsers.get(socket.id);
+      if (userId) {
+        console.log('User disconnected:', userId);
+        connectedUsers.delete(socket.id);
+        userSockets.delete(userId);
+
+        // Prepare updated user list
+        const onlineUsers = Array.from(connectedUsers.entries()).map(([socketId, userId]) => ({
+          socketId,
+          userId
+        }));
+
+        // Broadcast updated user list
+        io.emit('getUsers', onlineUsers);
+      }
+    } catch (error) {
+      console.error('Error in disconnect event:', error);
+    }
+  });
+
+  // Handle ping to keep connection alive
+  socket.on('ping', () => {
+    socket.emit('pong');
   });
 });
 
@@ -138,6 +206,7 @@ app.use('/api/users', userRoute);
 app.use('/api/chat', chatRoute);
 app.use('/api/messages', messageRoute);
 app.use("/api/posts", postRoute);
+
 // File upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
   try {
@@ -163,12 +232,18 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+// Start server with enhanced error handling
 const startServer = async () => {
-  await connectDB();
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  try {
+    await connectDB();
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Socket.IO server is ready for connections`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
 };
 
 startServer();

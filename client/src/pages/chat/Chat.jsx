@@ -8,6 +8,9 @@ import { useState, useEffect, useRef } from "react";
 import axiosClient from "../../api/axiosClient";
 import { io } from "socket.io-client";
 
+
+const SOCKET_SERVER = process.env.REACT_APP_WEBSOCKET_URL || 'http://localhost:3005';
+
 function Chat() {
   // get the currently logged-in user
   const { user } = useSelector((state) => state.user);
@@ -36,34 +39,52 @@ function Chat() {
   // state to store the new message from the socket
   const [socketMsg, setSocketMsg] = useState(null);
 
-  // set up a socket connection to the server
-  useEffect(() => {
-    if (!socket.current) {
-      socket.current = io(process.env.REACT_APP_WEBSOCKET_URL, {
-        transports: ['websocket'],
-        reconnection: true
-      });
-    }
-
-    // Cleanup on component unmount
-    return () => {
-      if (socket.current) {
-        socket.current.disconnect();
+ // Socket connection setup
+ useEffect(() => {
+  if (!socket.current && user) {
+    console.log('Connecting to socket server:', SOCKET_SERVER);
+    socket.current = io(SOCKET_SERVER, {
+      transports: ['websocket'],
+      reconnection: true,
+      auth: {
+        userId: user._id
       }
-    };
-  }, []);
+    });
 
-  // Handle user connection and online users
-  useEffect(() => {
+    socket.current.on('connect', () => {
+      console.log('Socket connected successfully');
+    });
+
+    socket.current.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+  }
+
+  return () => {
+    if (socket.current) {
+      console.log('Disconnecting socket');
+      socket.current.disconnect();
+      socket.current = null;
+    }
+  };
+}, [user]);
+
+   // Handle user connection and online users
+   useEffect(() => {
     if (socket.current && user?._id) {
-      // Add user to online users
+      console.log('Emitting addUser event with ID:', user._id);
+      
       socket.current.emit("addUser", user._id);
 
-      // Listen for online users updates
       socket.current.on("getUsers", (users) => {
-        console.log("Online users received:", users);
-        const onlineIds = users.map(u => u.userId);
-        const onlineFollowings = user.followings.filter(id => onlineIds.includes(id));
+        console.log('Received online users:', users);
+        console.log('Current user followings:', user.followings);
+        
+        const onlineFollowings = user.followings.filter(followingId => 
+          users.some(u => u.userId === followingId)
+        );
+        
+        console.log('Filtered online followings:', onlineFollowings);
         setOnlineUsers(onlineFollowings);
       });
     }
