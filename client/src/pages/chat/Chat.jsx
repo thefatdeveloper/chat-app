@@ -38,7 +38,7 @@ function Chat() {
 
   // set up a socket connection to the server
   useEffect(() => {
-    socket.current = io("wss://y4d8ts-3005.csb.app");
+    socket.current = io("wss://chat-app-server-3g8z.onrender.com");
 
     // <----- Task 13 solution ----->
     // get the new message from the socket
