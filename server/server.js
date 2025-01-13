@@ -15,6 +15,7 @@ import authRoute from './routes/auth.js';
 import userRoute from './routes/users.js';
 import chatRoute from './routes/chat.js';
 import messageRoute from './routes/message.js';
+import postRoute from './routes/posts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -136,7 +137,7 @@ app.use('/api/auth', authRoute);
 app.use('/api/users', userRoute);
 app.use('/api/chat', chatRoute);
 app.use('/api/messages', messageRoute);
-
+app.use("/api/posts", postRoute);
 // File upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
   try {
