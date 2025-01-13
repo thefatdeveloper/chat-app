@@ -2,10 +2,11 @@ import "./chat.css";
 import Header from "../../components/header/Header";
 import ChatUser from "../../components/chatUser/ChatUser";
 import Message from "../../components/message/Message";
-import OnlineUsers from "../../components/onlineUsers/OnlineUsers";
+import OnlineUsers from "../../components/onlineUsers/onlineUsers";
 import { useSelector } from "react-redux";
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import axiosClient from "../../api/axiosClient";
+import { io } from "socket.io-client";
 
 function Chat() {
   // get the currently logged-in user
@@ -26,15 +27,62 @@ function Chat() {
   // reference to the new message input field ==> new
   const newMsgRef = useRef(null);
 
-  // <-------- Task 11 here -------->
-  // <-------- Task 11 here -------->
+  // reference to the socket
+  const socket = useRef();
+
+  // state to store the online users
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  // state to store the new message from the socket
+  const [socketMsg, setSocketMsg] = useState(null);
+
+  // set up a socket connection to the server
+  useEffect(() => {
+    socket.current = io("wss://y4d8ts-3005.csb.app");
+
+    // <----- Task 13 solution ----->
+    // get the new message from the socket
+    socket.current.on("getMessage", (data) => {
+      setSocketMsg({
+        sender: data.senderId,
+        message: data.message,
+        createdAt: Date.now(),
+      });
+    });
+    // <----- Task 13 solution ----->
+  }, []);
+
+  // add the user to the socket and get the online users
+  useEffect(() => {
+    // add the user to the socket
+    socket.current.emit("addUser", user._id);
+
+    // get the online users from the socket
+    socket.current.on("getUsers", (users) => {
+      // only keep the users that are in the current user's following list
+      setOnlineUsers(
+        user.followings.filter((following) =>
+          users.some((u) => u.userId === following)
+        )
+      );
+    });
+  }, [user]);
+
+  // <----- Task 13 solution ----->
+  // add the new message from the socket to the messages array
+  useEffect(() => {
+    socketMsg &&
+      currChat?.users.includes(socketMsg.sender) &&
+      setMessages((prev) => [...prev, socketMsg]);
+  }, [socketMsg, currChat]);
+  // <----- Task 13 solution ----->
 
   // get the chats from the database on page load for the currently logged-in user
   useEffect(() => {
     const fetchChats = async () => {
       try {
         // get the chats from the database
-        const res = await axios.get(`/chats/${user._id}`);
+        const res = await axiosClient.get(`/chats/${user._id}`);
         setChats(res.data);
       } catch (err) {
         console.log(err);
@@ -48,7 +96,7 @@ function Chat() {
     const fetchMessages = async () => {
       try {
         // get the messages from the database
-        const res = await axios.get(`/messages/${currChat._id}`);
+        const res = await axiosClient.get(`/messages/${currChat._id}`);
         setMessages(res.data);
       } catch (err) {
         console.log(err);
@@ -86,12 +134,20 @@ function Chat() {
       chatId: currChat._id,
     };
 
+    // <----- Task 13 solution ----->
+    socket.current.emit("sendMessage", {
+      senderId: user._id,
+      receiverId: currChat.users.find((userTemp) => userTemp !== user._id),
+      message: newMsg,
+    });
+    // <----- Task 13 solution ----->
+
     try {
       // if the message is empty, don't send it
       if (newMsg === "") return;
 
       // send the message to the database
-      const response = await axios.post("/messages", message);
+      const response = await axiosClient.post("/messages", message);
 
       // add the new message to the messages array
       setMessages([...messages, response.data]);
@@ -129,7 +185,7 @@ function Chat() {
         <div className="chatBox">
           <div className="chatBoxContainer">
             {
-              // if there is a current chat, display the messages
+              // if there's a current chat, display the messages
               currChat ? (
                 <>
                   <div className="chatBoxTop">
@@ -168,9 +224,25 @@ function Chat() {
         </div>
 
         {/* chatOnline */}
+        {/* <----- Task 14 solution -----> */}
         <div className="followedUsers">
-          <OnlineUsers />
+          <div className="followedUsersContainer">
+            {
+              // if there are no online users, display a message
+              onlineUsers.length !== 0 && (
+                <h3 className="columnTitle">Online Users</h3>
+              )
+            }
+            <ul className="followedUsersList">
+              <OnlineUsers
+                onlineUsers={onlineUsers}
+                currUser={user}
+                setCurrChat={setCurrChat}
+              />
+            </ul>
+          </div>
         </div>
+        {/* <----- Task 14 solution -----> */}
       </div>
     </>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "./chatUser.css";
-import axios from "axios";
+import axiosClient from "../../api/axiosClient";
 import DefaultProfilePic from "../../images/noPic.png";
 
 function ChatUser({ chat, cUser }) {
@@ -14,7 +14,7 @@ function ChatUser({ chat, cUser }) {
     // get the friend's information from the database
     const getFriend = async () => {
       try {
-        const res = await axios.get(`/users?userId=${friendId}`);
+        const res = await axiosClient.get(`/users?userId=${friendId}`);
         setFriend(res.data);
       } catch (err) {
         console.log(err);

@@ -19,11 +19,11 @@ import messageRoute from './routes/message.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize express
+// Initialize express and create HTTP server
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.io setup
+// Socket.io setup with CORS configuration
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
@@ -37,7 +37,7 @@ const io = new Server(httpServer, {
 dotenv.config();
 const PORT = process.env.PORT || 8080;
 
-// Middleware
+// Middleware setup
 app.use(express.json());
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -84,18 +84,43 @@ const connectDB = async () => {
   }
 };
 
-// Socket.io event handlers
-let users = new Map();
+// Socket.io user management
+const users = new Map();
 
+// Socket.io event handlers
 io.on('connection', (socket) => {
   console.log('New user connected:', socket.id);
 
+  // Handle user addition
   socket.on('addUser', (userId) => {
     users.set(userId, socket.id);
     io.emit('getUsers', Array.from(users.entries()));
+    console.log('User added:', userId);
   });
 
+  // Handle message sending
+  socket.on('sendMessage', ({ senderId, receiverId, message }) => {
+    const receiverSocketId = users.get(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('getMessage', {
+        senderId,
+        message,
+      });
+      console.log(`Message from ${senderId} to ${receiverId}: ${message}`);
+    } else {
+      console.log(`User ${receiverId} not found.`);
+    }
+  });
+
+  // Handle chat messages
+  socket.on('chat message', (msg) => {
+    console.log(`Message from ${socket.id}: ${msg}`);
+    io.emit('chat message', msg);
+  });
+
+  // Handle disconnection
   socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
     users.forEach((socketId, userId) => {
       if (socketId === socket.id) {
         users.delete(userId);
@@ -104,8 +129,6 @@ io.on('connection', (socket) => {
     io.emit('getUsers', Array.from(users.entries()));
   });
 });
-
-
 
 // Routes
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
