@@ -38,7 +38,7 @@ function Chat() {
 
   // set up a socket connection to the server
   useEffect(() => {
-    socket.current = io(`${process.env.REACT_APP_SOCKET_URL}`);
+    socket.current = io(process.env.REACT_APP_WEBSOCKET_URL);
 
     // <----- Task 13 solution ----->
     // get the new message from the socket
