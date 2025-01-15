@@ -1,48 +1,52 @@
-/* create a CSS layout where the image is displayed in the left column
-and the message is displayed in the right column
-the name of the user is displayed above the message
-the date is displayed below the message
-only the message will have a background color
-the name of the user will be small and align with the image
-the date of the message will be small
-*/
 .message {
   display: flex;
   flex-direction: column;
-  margin-top: 20px;
+  margin: 20px 0;
+  align-items: flex-start;
+}
+
+.personalMessage {
+  align-items: flex-end;
 }
 
 .messageTop {
   display: flex;
+  align-items: flex-start;
+  max-width: 80%;
+}
+
+.personalMessage .messageTop {
+  flex-direction: row-reverse;
 }
 
 .messageImg {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   object-fit: cover;
-  margin-right: 10px;
+  margin: 0 10px;
 }
 
 .messageText {
-  background-color: blue;
   padding: 10px;
-  border-radius: 15px;
+  border-radius: 20px;
+  background-color: #f0f2f5;
+  color: black;
+  max-width: max-content;
+  margin: 0;
+  font-size: 0.9rem;
+  word-wrap: break-word;
+}
+
+.personalMessage .messageText {
+  background-color: #0084ff;
   color: white;
-  max-width: 400px;
 }
 
 .messageBottom {
-  font-size: 14px;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.message.personalMessage {
-  align-items: flex-end;
-}
-
-.message.personalMessage .messageText {
-  background-color: rgb(232, 232, 232);
-  color: black;
+  font-size: 12px;
+  color: gray;
+  margin-top: 5px;
+  margin-right: 10px;
+  margin-left: 10px;
 }

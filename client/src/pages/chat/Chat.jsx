@@ -8,72 +8,77 @@ import { useState, useEffect, useRef } from "react";
 import axiosClient from "../../api/axiosClient";
 import { io } from "socket.io-client";
 
-
-const SOCKET_SERVER = process.env.REACT_APP_WEBSOCKET_URL || 'http://localhost:3005';
-
 function Chat() {
-  // get the currently logged-in user
+  // Redux state
   const { user } = useSelector((state) => state.user);
 
-  // state to store the chats
+  // Component state
   const [chats, setChats] = useState([]);
-
-  // state to store the current chat
   const [currChat, setCurrChat] = useState(null);
-
-  // state to store the messages
   const [messages, setMessages] = useState([]);
-
-  // state to store the new message ==> new
   const [newMsg, setNewMsg] = useState("");
-
-  // reference to the new message input field ==> new
-  const newMsgRef = useRef(null);
-
-  // reference to the socket
-  const socket = useRef();
-
-  // state to store the online users
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [arrivalMessage, setArrivalMessage] = useState(null);
 
-  // state to store the new message from the socket
-  const [socketMsg, setSocketMsg] = useState(null);
+  // Refs
+  const socket = useRef();
+  const newMsgRef = useRef();
+  const SOCKET_SERVER = process.env.REACT_APP_WEBSOCKET_URL;
 
- // Socket connection setup
- useEffect(() => {
-  if (!socket.current && user) {
-    console.log('Connecting to socket server:', SOCKET_SERVER);
-    socket.current = io(SOCKET_SERVER, {
-      transports: ['websocket'],
-      reconnection: true,
-      auth: {
-        userId: user._id
-      }
-    });
+  // Initialize socket connection with auth
+  useEffect(() => {
+    if (!socket.current && user) {
+      console.log('Connecting to socket server:', SOCKET_SERVER);
+      socket.current = io(SOCKET_SERVER, {
+        transports: ['websocket'],
+        reconnection: true,
+        auth: {
+          userId: user._id
+        }
+      });
 
-    socket.current.on('connect', () => {
-      console.log('Socket connected successfully');
-    });
+      // Socket connection event handlers
+      socket.current.on('connect', () => {
+        console.log('Socket connected successfully');
+      });
 
-    socket.current.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-    });
-  }
+      socket.current.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+      });
 
-  return () => {
-    if (socket.current) {
-      console.log('Disconnecting socket');
-      socket.current.disconnect();
-      socket.current = null;
+      // Message listener
+      socket.current.on("getMessage", (data) => {
+        console.log("Received message:", data);
+        setArrivalMessage({
+          sender: data.senderId,
+          message: data.message,
+          createdAt: Date.now(),
+        });
+      });
     }
-  };
-}, [user]);
 
-   // Handle user connection and online users
-   useEffect(() => {
+    // Cleanup on unmount
+    return () => {
+      if (socket.current) {
+        console.log('Disconnecting socket');
+        socket.current.disconnect();
+        socket.current = null;
+      }
+    };
+  }, [user, SOCKET_SERVER]);
+
+  // Handle arriving messages
+  useEffect(() => {
+    if (arrivalMessage && currChat?.users.includes(arrivalMessage.sender)) {
+      console.log("Adding arrival message to chat:", arrivalMessage);
+      setMessages(prev => [...prev, arrivalMessage]);
+    }
+  }, [arrivalMessage, currChat]);
+
+  // Connect user to socket and handle online users
+  useEffect(() => {
     if (socket.current && user?._id) {
       console.log('Emitting addUser event with ID:', user._id);
-      
       socket.current.emit("addUser", user._id);
 
       socket.current.on("getUsers", (users) => {
@@ -96,171 +101,131 @@ function Chat() {
     };
   }, [user]);
 
-  // <----- Task 13 solution ----->
-  // add the new message from the socket to the messages array
-  useEffect(() => {
-    socketMsg &&
-      currChat?.users.includes(socketMsg.sender) &&
-      setMessages((prev) => [...prev, socketMsg]);
-  }, [socketMsg, currChat]);
-  // <----- Task 13 solution ----->
-
-  // get the chats from the database on page load for the currently logged-in user
+  // Fetch chats
   useEffect(() => {
     const fetchChats = async () => {
       try {
-        // get the chats from the database
         const res = await axiosClient.get(`/chats/${user._id}`);
         setChats(res.data);
       } catch (err) {
-        console.log(err);
+        console.error("Error fetching chats:", err);
       }
     };
-    fetchChats();
+    if (user?._id) fetchChats();
   }, [user]);
 
-  // get the messages from the database on page load for the currently selected chat
+  // Fetch messages for current chat
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        // get the messages from the database
         const res = await axiosClient.get(`/messages/${currChat._id}`);
         setMessages(res.data);
       } catch (err) {
-        console.log(err);
+        console.error("Error fetching messages:", err);
       }
     };
-    fetchMessages();
+    if (currChat) fetchMessages();
   }, [currChat]);
 
-  // function to handle the scrolling of the messages
+  // Auto-scroll to new messages
   useEffect(() => {
-    // scroll to the bottom of the messages
     newMsgRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // function to handle the selection of a chat
-  function handleChatSelect(sChat) {
-    setCurrChat(sChat);
-  }
+  // Handle chat selection
+  const handleChatSelect = (chat) => {
+    setCurrChat(chat);
+  };
 
-  // function to handle the change in the message input field
-  function handleMessageChange(event) {
-    // set the new message to the value of the input field
-    setNewMsg(event.target.value);
-  }
+  // Handle message submission
+  const handleMessageSend = async (e) => {
+    e.preventDefault();
+    if (!newMsg.trim()) return;
 
-  // function to handle the sending of a message
-  async function handleMessageSend(event) {
-    // prevent the page from reloading
-    event.preventDefault();
+    const receiverId = currChat.users.find((id) => id !== user._id);
 
-    // send the new message to the database
-    const message = {
-      sender: user._id,
-      message: newMsg,
-      chatId: currChat._id,
-    };
-
-    // <----- Task 13 solution ----->
+    // Emit socket event first for instant feedback
     socket.current.emit("sendMessage", {
       senderId: user._id,
-      receiverId: currChat.users.find((userTemp) => userTemp !== user._id),
+      receiverId,
       message: newMsg,
     });
-    // <----- Task 13 solution ----->
 
+    // Save message to database
     try {
-      // if the message is empty, don't send it
-      if (newMsg === "") return;
+      const messageData = {
+        sender: user._id,
+        message: newMsg,
+        chatId: currChat._id,
+      };
 
-      // send the message to the database
-      const response = await axiosClient.post("/messages", message);
-
-      // add the new message to the messages array
-      setMessages([...messages, response.data]);
-
-      // clear the new message input field
+      const res = await axiosClient.post("/messages", messageData);
+      setMessages([...messages, res.data]);
       setNewMsg("");
     } catch (err) {
-      console.log(err);
+      console.error("Error sending message:", err);
     }
-  }
+  };
 
   return (
     <>
       <Header />
-
       <div className="chat">
         <div className="chatMenu">
-          {
-            // display chats if there are any
-            chats.length > 0 ? (
-              <>
-                <h3 className="columnTitle">Chats</h3>
-                {chats.map((sChat) => (
-                  <div key={sChat._id} onClick={() => handleChatSelect(sChat)}>
-                    <ChatUser key={sChat._id} chat={sChat} cUser={user} />
-                  </div>
-                ))}
-              </>
-            ) : (
-              <span className="noChats">No chats yet</span>
-            )
-          }
+          {chats.length > 0 ? (
+            <>
+              <h3 className="columnTitle">Chats</h3>
+              {chats.map((chat) => (
+                <div key={chat._id} onClick={() => handleChatSelect(chat)}>
+                  <ChatUser chat={chat} cUser={user} />
+                </div>
+              ))}
+            </>
+          ) : (
+            <span className="noChats">No chats yet</span>
+          )}
         </div>
 
         <div className="chatBox">
           <div className="chatBoxContainer">
-            {
-              // if there's a current chat, display the messages
-              currChat ? (
-                <>
-                  <div className="chatBoxTop">
-                    {messages.map((sMessage) => (
-                      <div key={sMessage._id} ref={newMsgRef}>
-                        <Message
-                          key={sMessage._id}
-                          message={sMessage}
-                          personalMessage={sMessage.sender === user._id}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="chatBoxBottom">
-                    <textarea
-                      placeholder="Write something..."
-                      className="chatMessageInput"
-                      value={newMsg}
-                      onChange={(event) => handleMessageChange(event)}
-                    ></textarea>
-                    <button
-                      className="chatSubmitButton"
-                      onClick={handleMessageSend}
-                    >
-                      Send
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <span className="defaultChatMessage">
-                  Please select a conversation to start a chat.
-                </span>
-              )
-            }
+            {currChat ? (
+              <>
+                <div className="chatBoxTop">
+                  {messages.map((message) => (
+                    <div key={message._id} ref={newMsgRef}>
+                      <Message
+                        message={message}
+                        personalMessage={message.sender === user._id}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="chatBoxBottom">
+                  <textarea
+                    placeholder="Write something..."
+                    className="chatMessageInput"
+                    value={newMsg}
+                    onChange={(e) => setNewMsg(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleMessageSend(e)}
+                  />
+                  <button className="chatSubmitButton" onClick={handleMessageSend}>
+                    Send
+                  </button>
+                </div>
+              </>
+            ) : (
+              <span className="defaultChatMessage">
+                Please select a conversation to start a chat.
+              </span>
+            )}
           </div>
         </div>
 
-        {/* chatOnline */}
-        {/* <----- Task 14 solution -----> */}
         <div className="followedUsers">
           <div className="followedUsersContainer">
-            {
-              // if there are no online users, display a message
-              onlineUsers.length !== 0 && (
-                <h3 className="columnTitle">Online Users</h3>
-              )
-            }
+            {onlineUsers.length !== 0 && (
+              <h3 className="columnTitle">Online Users</h3>
+            )}
             <ul className="followedUsersList">
               <OnlineUsers
                 onlineUsers={onlineUsers}
@@ -270,7 +235,6 @@ function Chat() {
             </ul>
           </div>
         </div>
-        {/* <----- Task 14 solution -----> */}
       </div>
     </>
   );
