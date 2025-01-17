@@ -18,7 +18,6 @@ import chatRoute from './routes/chat.js';
 import messageRoute from './routes/message.js';
 import postRoute from './routes/posts.js';
 
-// ES module fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -38,19 +37,21 @@ const CLIENT_URL = NODE_ENV === 'production'
   : 'http://localhost:3000';
 
 // Configure upload directory
-const getUploadDir = () => {
-  const uploadDir = NODE_ENV === 'production'
-    ? '/tmp/uploads/images'
-    : path.join(__dirname, 'public/images');
+const UPLOAD_DIR = NODE_ENV === 'production'
+  ? '/tmp/uploads/images'
+  : path.join(__dirname, 'public/images');
 
-  if (!existsSync(uploadDir)) {
-    mkdirSync(uploadDir, { recursive: true });
-    console.log('Created upload directory:', uploadDir);
+// Create upload directory if it doesn't exist
+try {
+  if (!existsSync(UPLOAD_DIR)) {
+    mkdirSync(UPLOAD_DIR, { recursive: true });
+    console.log('Created upload directory:', UPLOAD_DIR);
   }
-  return uploadDir;
-};
+} catch (error) {
+  console.error('Error creating upload directory:', error);
+}
 
-// Socket.io setup with enhanced CORS configuration
+// Socket.io setup
 const io = new Server(httpServer, {
   cors: {
     origin: CLIENT_URL,
@@ -71,18 +72,16 @@ app.use(helmet({
 app.use(morgan('combined'));
 
 // CORS configuration
-const corsOptions = {
+app.use(cors({
   origin: CLIENT_URL,
   credentials: true,
   optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
+}));
 
 // File upload configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = getUploadDir();
-    cb(null, uploadDir);
+    cb(null, UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -92,7 +91,7 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   // Accept images only
-  if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+  if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
     return cb(new Error('Only image files are allowed!'), false);
   }
   cb(null, true);
@@ -106,7 +105,7 @@ const upload = multer({
   }
 });
 
-// MongoDB Connection with retry mechanism
+// MongoDB Connection with retry
 const connectDB = async (retries = 5) => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -121,8 +120,7 @@ const connectDB = async (retries = 5) => {
       if (i === retries - 1) {
         console.error('All MongoDB connection attempts failed');
         process.exit(1);
-      }
-      // Wait before retrying
+      }      
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
@@ -285,15 +283,14 @@ io.on('connection', (socket) => {
 });
 
 // Routes
-const uploadsPath = NODE_ENV === 'production' ? '/tmp/uploads/images' : 'public/images';
-app.use('/images', express.static(path.join(__dirname, uploadsPath)));
+app.use('/images', express.static(UPLOAD_DIR));
 app.use('/api/auth', authRoute);
 app.use('/api/users', userRoute);
-app.use('/api/chats', chatRoute);
+app.use('/api/chat', chatRoute);
 app.use('/api/messages', messageRoute);
-app.use('/api/posts', postRoute);
+app.use("/api/posts", postRoute);
 
-// File upload endpoint with error handling
+// File upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
   try {
     if (!req.file) {
@@ -313,7 +310,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   }
 });
 
-// Global error handling middleware
+// Global error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({ 
@@ -322,27 +319,25 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle uncaught exceptions and rejections
+// Handle uncaught errors
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
-  // Attempt graceful shutdown
   httpServer.close(() => process.exit(1));
 });
 
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled Rejection:', error);
-  // Attempt graceful shutdown
   httpServer.close(() => process.exit(1));
 });
 
-// Start server with enhanced error handling
+// Start server
 const startServer = async () => {
   try {
     await connectDB();
     httpServer.listen(PORT, () => {
       console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`);
-      console.log(`Socket.IO server is ready for connections`);
       console.log(`CORS enabled for origin: ${CLIENT_URL}`);
+      console.log(`Upload directory: ${UPLOAD_DIR}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
