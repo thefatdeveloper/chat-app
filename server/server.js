@@ -286,7 +286,7 @@ io.on('connection', (socket) => {
 app.use('/images', express.static(UPLOAD_DIR));
 app.use('/api/auth', authRoute);
 app.use('/api/users', userRoute);
-app.use('/api/chat', chatRoute);
+app.use('/api/chats', chatRoute);
 app.use('/api/messages', messageRoute);
 app.use("/api/posts", postRoute);
 
