@@ -84,16 +84,29 @@ app.use(cors({
 // File upload configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
+    try {
+      // Ensure upload directory exists
+      if (!existsSync(UPLOAD_DIR)) {
+        mkdirSync(UPLOAD_DIR, { recursive: true });
+      }
+      cb(null, UPLOAD_DIR);
+    } catch (error) {
+      cb(error);
+    }
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+    try {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      cb(null, `${uniqueSuffix}${ext}`);
+    } catch (error) {
+      cb(error);
+    }
   }
 });
 
 const fileFilter = (req, file, cb) => {
+  // Accept images only
   if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
     return cb(new Error('Only image files are allowed!'), false);
   }
@@ -278,22 +291,30 @@ app.use('/api/chats', chatRoute);
 app.use('/api/messages', messageRoute);
 app.use("/api/posts", postRoute);
 
-// File upload endpoint
+// File upload endpoint with better error handling
 app.post('/api/upload', upload.single('file'), (req, res) => {
   try {
+    console.log('Upload request received:', req.file);
+    
     if (!req.file) {
+      console.log('No file uploaded');
       return res.status(400).json({ error: 'No file uploaded' });
     }
+
+    // Return the filename and complete path
+    const fileUrl = `/images/${req.file.filename}`;
+    console.log('File uploaded successfully:', fileUrl);
+    
     res.status(200).json({ 
       message: 'File uploaded successfully',
       filename: req.file.filename,
-      path: `/images/${req.file.filename}`
+      path: fileUrl
     });
   } catch (error) {
     console.error('File upload error:', error);
     res.status(500).json({ 
       error: 'Error uploading file',
-      details: NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

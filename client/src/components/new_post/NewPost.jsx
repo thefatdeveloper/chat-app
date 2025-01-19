@@ -8,6 +8,7 @@ import "./newPost.css";
 export default function NewPost({ pageType }) {
   const [desc, setDesc] = useState("");
   const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const { user } = useSelector((state) => state.user);
   const navigate = useNavigate();
 
@@ -19,14 +20,24 @@ export default function NewPost({ pageType }) {
 
   async function handleFormSubmit(e) {
     e.preventDefault();
+    setUploading(true);
+
     try {
       let imagePath = '';
       
       if (file) {
         const formData = new FormData();
-        formData.append("file", file);
+        // Make sure to use 'file' as the field name
+        formData.append('file', file);
         
-        const uploadResponse = await axiosClient.post("/upload", formData);
+        console.log('Uploading file:', file.name);
+        const uploadResponse = await axiosClient.post("/upload", formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
+        console.log('Upload response:', uploadResponse.data);
         imagePath = uploadResponse.data.filename;
       }
 
@@ -36,7 +47,9 @@ export default function NewPost({ pageType }) {
         img: imagePath
       };
 
-      await axiosClient.post("/posts", newPost);
+      console.log('Creating post:', newPost);
+      const postResponse = await axiosClient.post("/posts", newPost);
+      console.log('Post created:', postResponse.data);
 
       if (pageType === "profile") {
         navigate("/");
@@ -45,6 +58,12 @@ export default function NewPost({ pageType }) {
       }
     } catch (error) {
       console.error("Error creating post:", error);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+      }
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -76,8 +95,12 @@ export default function NewPost({ pageType }) {
               onChange={(e) => setFile(e.target.files[0])}
             />
           </div>
-          <button className="newPostButton" type="submit">
-            Post
+          <button 
+            className="newPostButton" 
+            type="submit"
+            disabled={uploading}
+          >
+            {uploading ? 'Posting...' : 'Post'}
           </button>
         </form>
       </div>
