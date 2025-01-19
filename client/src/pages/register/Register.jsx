@@ -58,7 +58,7 @@ export default function Register() {
   return (
     <div className="loginContainer">
       <form className="loginBox" onSubmit={handleFormSubmit}>
-        <div className="appName">Image Sharing App</div>
+        <div className="appName">SocialHub</div>
         <input
           className="loginInput"
           required

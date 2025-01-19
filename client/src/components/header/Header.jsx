@@ -30,7 +30,7 @@ export default function Header() {
     <div className="headerContainer">
       <div className="headerLeft">
         <Link to="/" style={{ textDecoration: "none" }}>
-          <span style={{ color: "whitesmoke" }}>Image Sharing App</span>
+          <span style={{ color: "whitesmoke" }}>SocialHub</span>
         </Link>
       </div>
       <div className="headerRight">

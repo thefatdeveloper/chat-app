@@ -60,7 +60,7 @@ export default function Login() {
   return (
     <div className="loginContainer">
       <form onSubmit={handleFormSubmit} className="loginBox">
-        <div className="appName">Image Sharing App</div>
+        <div className="appName">SocialHub</div>
         <input
           className="loginInput"
           required
