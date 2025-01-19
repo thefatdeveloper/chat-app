@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-
 import axiosClient from "../../api/axiosClient";
 import "./post.css";
 import { Link } from "react-router-dom";
@@ -8,19 +7,23 @@ import DefaultProfilePic from "../../images/noPic.png";
 function Post({ post }) {
   const [user, setUser] = useState({});
 
-  // get the base64 image
-  let base64String = post.img.split(",");
-
-  // get a user from the database
   useEffect(() => {
-    // async function to fetch the user
     const fetchUser = async () => {
-      // get the user from the database
-      const res = await axiosClient.get(`/users/?userId=${post.userId}`);
-      setUser(res.data);
+      try {
+        const res = await axiosClient.get(`/users/?userId=${post.userId}`);
+        setUser(res.data);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
     };
     fetchUser();
-  }, [post]);
+  }, [post.userId]);
+
+  const getImageUrl = (imageStr) => {
+    if (!imageStr) return DefaultProfilePic;
+    if (imageStr.startsWith('data:')) return imageStr;
+    return `/images/${imageStr}`;
+  };
 
   return (
     <div className="postContainer">
@@ -29,7 +32,7 @@ function Post({ post }) {
           <Link to={`profile/${user.username}`}>
             <img
               className="userProfileImg"
-              src={user.profilePicture || DefaultProfilePic}
+              src={getImageUrl(user.profilePicture)}
               alt="Profile"
             />
           </Link>
@@ -37,11 +40,16 @@ function Post({ post }) {
         </div>
         <hr className="postHr" />
         <div className="postCenter">
-          <img
-            className="postImg"
-            src={`data:image/jpeg;base64,${base64String[1]}`}
-            alt="Post"
-          />
+          {post.img && (
+            <img
+              className="postImg"
+              src={getImageUrl(post.img)}
+              alt="Post"
+              onError={(e) => {
+                e.target.src = DefaultProfilePic;
+              }}
+            />
+          )}
         </div>
         <div className="postBottom">
           <span className="postDescription">{post.desc}</span>

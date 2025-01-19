@@ -9,50 +9,34 @@ export default function NewPost({ pageType }) {
   const [desc, setDesc] = useState("");
   const [file, setFile] = useState(null);
   const { user } = useSelector((state) => state.user);
+  const navigate = useNavigate();
 
-  // get the base64 image
-  let base64String = user.profilePicture.split(",");
+  const getImageUrl = (imageStr) => {
+    if (!imageStr) return DefaultProfilePic;
+    if (imageStr.startsWith('data:')) return imageStr;
+    return `/images/${imageStr}`;
+  };
 
-  let navigate = useNavigate();
-
-  function handleDescChange(e) {
-    setDesc(e.target.value);
-  }
-
-  function handleFileChange(e) {
-    setFile(e.target.files[0]);
-  }
-
-  // handle form submit
   async function handleFormSubmit(e) {
     e.preventDefault();
-    const nPost = {
-      userId: user._id,
-      desc: desc,
-      img: file,
-    };
-
-    if (file) {
-      // create a new form data
-      const data = new FormData();
-      const fileName = Date.now() + "__" + file.name;
-
-      // append the file to the form data by changing the name of the image file to be stored in the server
-      data.append("name", fileName);
-      data.append("file", file);
-      nPost.img = fileName;
-
-      // send the form data to the server
-      try {
-        await axiosClient.post("/upload", data);
-      } catch (error) {
-        console.log(error);
-      }
-    }
-
     try {
-      // send the new post to the server
-      await axiosClient.post("/posts", nPost);
+      let imagePath = '';
+      
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        
+        const uploadResponse = await axiosClient.post("/upload", formData);
+        imagePath = uploadResponse.data.filename;
+      }
+
+      const newPost = {
+        userId: user._id,
+        desc: desc,
+        img: imagePath
+      };
+
+      await axiosClient.post("/posts", newPost);
 
       if (pageType === "profile") {
         navigate("/");
@@ -60,7 +44,7 @@ export default function NewPost({ pageType }) {
         window.location.reload();
       }
     } catch (error) {
-      console.log(error);
+      console.error("Error creating post:", error);
     }
   }
 
@@ -70,17 +54,14 @@ export default function NewPost({ pageType }) {
         <div className="newPostTop">
           <img
             className="newPostProfileImg"
-            src={
-              user.profilePicture
-                ? `data:image/jpeg;base64,${base64String[1]}`
-                : DefaultProfilePic
-            }
+            src={getImageUrl(user.profilePicture)}
             alt="Profile"
           />
           <input
             placeholder="Create a new post here..."
             className="newPostInput"
-            onChange={handleDescChange}
+            onChange={(e) => setDesc(e.target.value)}
+            value={desc}
             style={{ outline: "none" }}
           />
         </div>
@@ -92,7 +73,7 @@ export default function NewPost({ pageType }) {
               type="file"
               id="file"
               accept=".png,.jpeg,.jpg"
-              onChange={handleFileChange}
+              onChange={(e) => setFile(e.target.files[0])}
             />
           </div>
           <button className="newPostButton" type="submit">
