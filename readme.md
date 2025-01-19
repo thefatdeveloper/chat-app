@@ -132,7 +132,7 @@ This project is licensed under the MIT License
 
 ## 👥 Contact
 
-Your Name - sreekarsai19@gmail.com
+My Email Add - sreekarsai19@gmail.com
 Project Link: [https://thefatdeveloper.github.io/chat-app/#/login](https://thefatdeveloper.github.io/chat-app/#/login)
 
 ## 🙏 Acknowledgments
