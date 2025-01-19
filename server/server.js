@@ -28,6 +28,9 @@ const httpServer = createServer(app);
 // Configure environment variables early
 dotenv.config();
 
+// Fix mongoose strictQuery warning
+mongoose.set('strictQuery', true);
+
 // Constants
 const PORT = process.env.PORT || 8080;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -51,7 +54,7 @@ try {
   console.error('Error creating upload directory:', error);
 }
 
-// Socket.io setup
+// Socket.io setup with enhanced CORS configuration
 const io = new Server(httpServer, {
   cors: {
     origin: CLIENT_URL,
@@ -85,12 +88,12 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const ext = path.extname(file.originalname);
+    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   }
 });
 
 const fileFilter = (req, file, cb) => {
-  // Accept images only
   if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
     return cb(new Error('Only image files are allowed!'), false);
   }
@@ -105,7 +108,7 @@ const upload = multer({
   }
 });
 
-// MongoDB Connection with retry
+// MongoDB Connection with retry mechanism
 const connectDB = async (retries = 5) => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -117,25 +120,21 @@ const connectDB = async (retries = 5) => {
       return true;
     } catch (error) {
       console.error(`MongoDB connection attempt ${i + 1} failed:`, error);
-      if (i === retries - 1) {
-        console.error('All MongoDB connection attempts failed');
-        process.exit(1);
-      }      
+      if (i === retries - 1) throw error;
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
 };
 
-// Socket.io user management with Maps for O(1) lookup
+// Socket.io user management
 const connectedUsers = new Map(); // Stores socketId -> userId
 const userSockets = new Map();    // Stores userId -> socketId
 const userRooms = new Map();      // Stores userId -> Set of room IDs
 
-// Socket.io event handlers with improved error handling
+// Socket.io event handlers
 io.on('connection', (socket) => {
   console.log('New socket connection established:', socket.id);
 
-  // Handle user addition with validation
   socket.on('addUser', (userId) => {
     if (!userId) {
       socket.emit('error', 'Invalid user ID provided');
@@ -143,7 +142,6 @@ io.on('connection', (socket) => {
     }
 
     try {
-      // Handle existing connections for this user
       const existingSocketId = userSockets.get(userId);
       if (existingSocketId && existingSocketId !== socket.id) {
         connectedUsers.delete(existingSocketId);
@@ -152,18 +150,15 @@ io.on('connection', (socket) => {
         });
       }
 
-      // Store new socket connection
       connectedUsers.set(socket.id, userId);
       userSockets.set(userId, socket.id);
       userRooms.set(userId, new Set());
 
-      // Prepare user list for client
       const onlineUsers = Array.from(connectedUsers.entries()).map(([socketId, userId]) => ({
         socketId,
         userId
       }));
 
-      // Broadcast updated user list
       io.emit('getUsers', onlineUsers);
       console.log(`User ${userId} connected. Total online users: ${onlineUsers.length}`);
     } catch (error) {
@@ -172,7 +167,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Enhanced message handling with acknowledgment and typing indicators
   socket.on('sendMessage', async ({ senderId, receiverId, message, chatId }) => {
     try {
       const receiverSocketId = userSockets.get(receiverId);
@@ -190,9 +184,8 @@ io.on('connection', (socket) => {
         socket.emit('messageDelivered', { messageId: chatId, timestamp });
         console.log(`Message delivered from ${senderId} to ${receiverId}`);
       } else {
-        // Store message for offline delivery
-        console.log(`Receiver ${receiverId} is offline. Message queued.`);
         socket.emit('messageQueued', { messageId: chatId, timestamp });
+        console.log(`Receiver ${receiverId} is offline. Message queued.`);
       }
     } catch (error) {
       console.error('Error in sendMessage event:', error);
@@ -200,7 +193,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Typing indicator events
   socket.on('typing', ({ chatId, userId }) => {
     try {
       socket.broadcast.to(chatId).emit('userTyping', { userId, chatId });
@@ -217,15 +209,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Chat room management
   socket.on('joinRoom', (roomId) => {
     try {
       socket.join(roomId);
       const userId = connectedUsers.get(socket.id);
       if (userId) {
-        userRooms.get(userId)?.add(roomId);
+        if (!userRooms.has(userId)) {
+          userRooms.set(userId, new Set());
+        }
+        userRooms.get(userId).add(roomId);
+        console.log(`User ${userId} joined room ${roomId}`);
       }
-      console.log(`User ${userId} joined room ${roomId}`);
     } catch (error) {
       console.error('Error joining room:', error);
       socket.emit('error', 'Failed to join chat room');
@@ -236,32 +230,28 @@ io.on('connection', (socket) => {
     try {
       socket.leave(roomId);
       const userId = connectedUsers.get(socket.id);
-      if (userId) {
-        userRooms.get(userId)?.delete(roomId);
+      if (userId && userRooms.has(userId)) {
+        userRooms.get(userId).delete(roomId);
+        console.log(`User ${userId} left room ${roomId}`);
       }
-      console.log(`User ${userId} left room ${roomId}`);
     } catch (error) {
       console.error('Error leaving room:', error);
     }
   });
 
-  // Enhanced disconnection handling
   socket.on('disconnect', () => {
     try {
       const userId = connectedUsers.get(socket.id);
       if (userId) {
-        // Clean up user data
         connectedUsers.delete(socket.id);
         userSockets.delete(userId);
         userRooms.delete(userId);
 
-        // Prepare updated user list
         const onlineUsers = Array.from(connectedUsers.entries()).map(([socketId, userId]) => ({
           socketId,
           userId
         }));
 
-        // Broadcast updated user list
         io.emit('getUsers', onlineUsers);
         console.log(`User ${userId} disconnected. Total online users: ${onlineUsers.length}`);
       }
@@ -270,12 +260,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle ping to keep connection alive
   socket.on('ping', () => {
     socket.emit('pong');
   });
 
-  // Generic error handler
   socket.on('error', (error) => {
     console.error('Socket error:', error);
     socket.emit('error', 'An unexpected error occurred');
